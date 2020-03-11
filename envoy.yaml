@@ -1,0 +1,97 @@
+static_resources:
+  listeners:
+  - name: http_listener
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 80 }
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          upgrade_configs:
+          - upgrade_type: "websocket"
+          access_log:
+          route_config:
+            name: registration_route
+            virtual_hosts:
+            - name: service
+              domains: ["example.org", "example.org:443"]
+              routes:
+              - match: { prefix: "/" }
+                redirect: { path_redirect: "/", https_redirect: true }
+          http_filters:
+          - name: envoy.router
+  - name: https_listener
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 443 }
+    filter_chains:
+    - filters:
+      - name: envoy.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.config.filter.network.http_connection_manager.v2.HttpConnectionManager
+          stat_prefix: ingress_http
+          codec_type: AUTO
+          upgrade_configs:
+          - upgrade_type: "websocket"
+          access_log:
+          route_config:
+            name: registration_route
+            virtual_hosts:
+            - name: service
+              domains: ["example.org", "example.org:443"]
+              routes:
+              - match: { prefix: "/" }
+                route:
+                  cluster: service
+                  timeout: 360s
+                response_headers_to_add:
+                  - header:
+                      key: "x-frame-options"
+                      value: "sameorigin"
+                  - header:
+                      key: "cache-control"
+                      value: "must-revalidate"
+                  - header:
+                      key: "x-xss-protection"
+                      value: "1; mode=block"
+                  - header:
+                      key: "x-content-type-options"
+                      value: "nosniff"
+                  - header:
+                      key: "Strict-Transport-Security"
+                      value: "max-age=63072000; includeSubdomains"
+                  - header:
+                      key: "Content-Security-Policy"
+                      value: ""
+                  - header:
+                      key: "X-Permitted-Cross-Domain-Policy"
+                      value: "none"
+                    append: true
+
+          http_filters:
+          - name: envoy.gzip
+            typed_config:
+              "@type": type.googleapis.com/envoy.config.filter.http.gzip.v2.Gzip
+              memory_level: 9
+              compression_level: BEST
+          - name: envoy.router
+
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.api.v2.auth.DownstreamTlsContext
+          common_tls_context:
+            tls_certificates:
+              - certificate_chain:
+                  filename: "/etc/letsencrypt/conf/live/example.org/fullchain.pem"
+                private_key:
+                  filename: "/etc/letsencrypt/conf/live/example.org/privkey.pem"
+
+  clusters:
+  - name: service
+    connect_timeout: 360s
+    type: LOGICAL_DNS
+    lb_policy: ROUND_ROBIN
+    hosts: [{ socket_address: { address: your_service, port_value: 8000 }}]

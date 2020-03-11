@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  your_service:
+    image: "your/image"
+    ports:
+      - 8000:8000
+  envoy:
+    image: envoyproxy/envoy-alpine:latest
+    container_name: envoy
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      - ./letsencrypt:/etc/letsencrypt
+    restart: always
+    command: envoy -c /etc/envoy/envoy.yaml
+    ports:
+      - 80:80
+      - 443:443
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./letsencrypt/conf:/etc/letsencrypt
+      - ./letsencrypt/www:/var/www/certbot
+    command: certonly --standalone --email hello@example.org -d example.org -d www.example.org --rsa-key-size 4096 --agree-tos --force-renewal
+    ports:
+      - 80:80
+      - 443:443
