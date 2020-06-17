@@ -21,7 +21,7 @@ services:
     volumes:
       - ./letsencrypt/conf:/etc/letsencrypt
       - ./letsencrypt/www:/var/www/certbot
-    command: certonly --standalone --email hello@example.org -d example.org -d www.example.org --rsa-key-size 4096 --agree-tos --force-renewal
+    command: certonly --standalone --email hello@example.org -d example.org --rsa-key-size 4096 --agree-tos --force-renewal
     ports:
       - 80:80
       - 443:443
